@@ -1,5 +1,7 @@
 # 📟 CYBERDECK v1 — Orange Pi 5B
 
+<img width="1144" height="1609" alt="image" src="https://github.com/user-attachments/assets/ba6da383-3545-4b47-969a-0eb4a8f61ea7" />
+
 <div align="center">
 
 ![Project Status](https://img.shields.io/badge/Status-In--Progress-orange?style=for-the-badge)
