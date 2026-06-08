@@ -1,0 +1,37 @@
+{
+  "project_name": "My Project Name",
+  "project_type": "full-stack",
+  "stack": {
+    "frontend": "react",
+    "backend": "nodejs",
+    "database": "postgresql"
+  },
+  "standards_applied": {
+    "phase_1_global": true,
+    "phase_2_frontend": true,
+    "phase_2_backend": true,
+    "phase_2_database": true,
+    "phase_5_qa_agent": true,
+    "phase_5_security_agent": true,
+    "phase_5_doc_agent": true
+  },
+  "team_info": {
+    "size": 5,
+    "tech_lead": "your-name",
+    "testing_required": true,
+    "security_level": "high"
+  },
+  "customizations": {
+    "test_command": "npm test -- --coverage",
+    "build_command": "npm run build",
+    "lint_command": "npm run lint",
+    "security_audit": "npm audit && npm run lint",
+    "api_documentation": true,
+    "database_migrations_required": true
+  },
+  "hooks_enabled": {
+    "pre_commit": true,
+    "pre_push": false,
+    "audit_logging": true
+  }
+}

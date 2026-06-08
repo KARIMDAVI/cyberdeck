@@ -1,0 +1,21 @@
+{
+  "dangerous_patterns": [
+    "rm -rf",
+    "chmod /etc/",
+    "eval\\(",
+    "sk_live_",
+    "password.*=.*['\"]",
+    "api_key.*['\"]",
+    "private_key"
+  ],
+  "whitelist_patterns": [
+    "test.*rm.*-rf",
+    "backup.*script"
+  ],
+  "strict_mode": true,
+  "require_approval": [
+    "sudo",
+    "database.*drop",
+    "DELETE.*FROM"
+  ]
+}

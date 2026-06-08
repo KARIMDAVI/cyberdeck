@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERDECK — Build Guide</title>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #04080f;
+  --panel-bg: #060c16;
+  --border: #0d2035;
+  --accent: #00f5d4;
+  --accent2: #0ea5e9;
+  --dim: #1a3a5a;
+  --text: #8ab4cc;
+  --text-bright: #cce8f4;
+  --glow: rgba(0,245,212,0.15);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── 3D Viewport ── */
+#vp { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* Scanline overlay — purely cosmetic */
+#vp::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px
+  );
+  pointer-events: none;
+}
+
+#hint {
+  position: absolute; top: 12px; left: 14px;
+  font-size: 8px; color: #1a4060; letter-spacing: .08em;
+  pointer-events: none;
+}
+
+#bar {
+  position: absolute; bottom: 14px; left: 14px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+
+.bb {
+  background: transparent;
+  border: 1px solid var(--dim);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+  font-size: 8px; letter-spacing: .12em;
+  padding: 6px 14px; cursor: pointer;
+  text-transform: uppercase;
+  transition: all .15s;
+  clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+}
+.bb:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 10px var(--glow);
+  background: rgba(0,245,212,0.05);
+}
+.bb.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,245,212,0.08);
+}
+
+/* Corner HUD brackets on viewport */
+#vp-corners span {
+  position: absolute; width: 16px; height: 16px;
+  border-color: var(--dim); border-style: solid;
+  pointer-events: none;
+}
+#vp-corners span:nth-child(1) { top: 10px; left: 10px; border-width: 1px 0 0 1px; }
+#vp-corners span:nth-child(2) { top: 10px; right: 10px; border-width: 1px 1px 0 0; }
+#vp-corners span:nth-child(3) { bottom: 10px; left: 10px; border-width: 0 0 1px 1px; }
+#vp-corners span:nth-child(4) { bottom: 10px; right: 10px; border-width: 0 1px 1px 0; }
+
+/* ── Right Panel ── */
+#panel {
+  width: 290px; min-width: 290px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+#ph {
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+}
+#ph::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px; background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+#ph h1 {
+  font-size: 18px; font-weight: 700;
+  letter-spacing: .3em; color: var(--accent);
+  text-shadow: 0 0 12px rgba(0,245,212,0.5);
+}
+#ph h1::after {
+  content: '█';
+  font-size: 14px;
+  animation: blink 1.1s step-end infinite;
+  margin-left: 2px;
+  color: var(--accent);
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+#ph p { font-size: 7.5px; color: #1a5060; letter-spacing: .18em; margin-top: 3px; text-transform: uppercase; }
+#ph .badge {
+  display: inline-block; margin-top: 7px;
+  border: 1px solid #065f46; color: #00f5d4;
+  font-size: 7px; padding: 2px 7px; letter-spacing: .12em;
+  background: rgba(0,245,212,0.07);
+}
+
+/* Tabs */
+#tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab {
+  flex: 1; padding: 9px 4px;
+  font-size: 7.5px; font-family: 'Courier New', monospace;
+  letter-spacing: .12em; text-align: center; text-transform: uppercase;
+  cursor: pointer; color: #1a4060;
+  border: none; border-bottom: 2px solid transparent;
+  background: none; transition: all .15s; margin-bottom: -1px;
+}
+.tab:hover { color: var(--accent2); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  text-shadow: 0 0 8px rgba(0,245,212,0.4);
+}
+
+/* Tab panels */
+.tp { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.tp.on { display: flex; }
+
+.scroll { flex: 1; overflow-y: auto; }
+.scroll::-webkit-scrollbar { width: 3px; }
+.scroll::-webkit-scrollbar-thumb { background: var(--dim); }
+
+/* Component rows */
+.cr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; cursor: pointer;
+  border-left: 2px solid transparent; transition: all .1s;
+}
+.cr:hover { background: rgba(0,245,212,0.03); }
+.cr.sel {
+  background: rgba(0,245,212,0.06);
+  border-left-color: var(--accent);
+}
+
+.cdot { width: 8px; height: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); }
+.cn { flex: 1; font-size: 9.5px; color: #2a5070; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cr.sel .cn { color: var(--accent); }
+.vb { font-size: 10px; cursor: pointer; color: var(--dim); user-select: none; transition: color .15s; }
+.vb:hover { color: var(--accent); }
+.vb.off { color: #0a1a2a; }
+
+/* Assembly steps */
+.step {
+  display: flex; gap: 8px; padding: 8px 10px;
+  cursor: pointer; border-left: 2px solid transparent;
+  margin-bottom: 1px; transition: all .1s; align-items: flex-start;
+}
+.step:hover { background: rgba(0,245,212,0.03); }
+.step.on { background: rgba(0,245,212,0.06); border-left-color: var(--accent); }
+
+/* Hexagonal step number */
+.snum {
+  width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px;
+  background: var(--dim); color: #1a5070;
+  font-size: 7.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.step.on .snum { background: var(--accent); color: var(--bg); }
+
+.stxt { flex: 1; }
+.stitle { font-size: 9px; color: #2a5070; line-height: 1.4; }
+.step.on .stitle { color: var(--text-bright); }
+.sparts { font-size: 7.5px; color: #0d2840; margin-top: 2px; }
+
+/* Info box */
+.ib {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px; flex-shrink: 0;
+  min-height: 90px; background: var(--bg);
+}
+.ib-label {
+  font-size: 6.5px; color: #0d3050; letter-spacing: .2em;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.ib-body { font-size: 8.5px; color: #2a6080; line-height: 1.7; white-space: pre-line; }
+.ib-body.empty { color: #0d2035; font-style: italic; }
+
+/* Specs tab */
+.spec-section {
+  font-size: 7px; letter-spacing: .15em; color: #0d3050;
+  text-transform: uppercase; margin: 10px 0 4px;
+  padding-bottom: 3px; border-bottom: 1px solid var(--border);
+}
+.spec-line { font-size: 8.5px; color: #2a5070; line-height: 1.8; padding-left: 4px; }
+.spec-line.highlight { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="vp">
+  <canvas id="c"></canvas>
+  <div id="vp-corners"><span></span><span></span><span></span><span></span></div>
+  <div id="hint">ORBIT · drag &nbsp;|&nbsp; ZOOM · scroll &nbsp;|&nbsp; PAN · right-drag &nbsp;|&nbsp; SELECT · click</div>
+  <div id="bar">
+    <button class="bb primary" id="btn-explode">⊕ Explode</button>
+    <button class="bb" id="btn-assemble">⊙ Assemble</button>
+    <button class="bb" id="btn-show-all">Show All</button>
+    <button class="bb" id="btn-reset">Reset View</button>
+  </div>
+</div>
+
+<div id="panel">
+  <div id="ph">
+    <h1>CYBERDECK</h1>
+    <p>K!MO Build · Interactive Guide</p>
+    <span class="badge">PCB ORDER CONFIRMED ✓</span>
+  </div>
+
+  <div id="tabs">
+    <button class="tab active" data-tab="comp">Components</button>
+    <button class="tab" data-tab="asm">Assembly</button>
+    <button class="tab" data-tab="specs">Specs</button>
+  </div>
+
+  <div class="tp on" id="tp-comp">
+    <div class="scroll" id="comp-list"></div>
+    <div class="ib">
+      <div class="ib-label">Selected Component</div>
+      <div class="ib-body empty" id="comp-info">click a component to see specs</div>
+    </div>
+  </div>
+
+  <div class="tp" id="tp-asm">
+    <div class="scroll" id="steps-list"></div>
+    <div class="ib">
+      <div class="ib-label">Step Detail</div>
+      <div class="ib-body empty" id="step-info">click a step to highlight parts</div>
+    </div>
+  </div>
+
+  <div class="tp" id="tp-specs">
+    <div class="scroll" id="specs-content" style="padding:10px 12px;"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Coordinate system ──────────────────────────────────────────────────────
+// Case origin at case center. SCAD: X=width(L→R), Y=depth(front→back), Z=height(up)
+// Three: X=L→R, Y=up, Z=front→back
+// Case: 138mm wide, 195mm tall, 65mm deep
+// Inner: 133mm wide, 190mm tall, 59.5mm deep
+// OPi: flush right — right edge at X=133mm inner, left edge at X=71mm inner
+// OPi centered vertically: Z offset 47.5mm from top and bottom (195-100)/2
+
+const CX = 69, CZ = 97.5, CY = 32.5; // case center in SCAD coords (Z=195/2)
+const s2t = (x, y, z) => new THREE.Vector3(x - CX, z - CZ, -(y - CY));
+
+// ── Component definitions (all from verified MEASUREMENTS.md) ─────────────
+const COMPS = [
+  {
+    id: 'opi',
+    name: 'Orange Pi 5B',
+    color: 0x0ea5e9,
+    // Flush right: OPi right edge at X=135.5mm (2.5mm wall + 133mm inner)
+    // OPi center X = 135.5 - 31 = 104.5mm from left outer wall
+    // OPi center Z = 47.5 + 50 = 97.5mm from bottom (195mm case, centered vertically)
+    scadPos: [104.5, 40.7, 97.5],
+    scadSize: [62, 1.6, 100],
+    info: 'SoC: Rockchip RK3588S (8-core, 2.4GHz)\nRAM: 8GB LPDDR4X\nStorage: 64GB eMMC\nWiFi6 + BT5.0 | USB3.0-A + USB2.0-A\nPower: 5V/4A via USB-C\nPCB: 100 × 62mm\nMounted flush-right for direct port access',
+  },
+  {
+    id: 'heat',
+    name: 'Copper Heatsinks',
+    color: 0xd97706,
+    isGroup: true,
+    children: [
+      // RK3588S SoC (15×15mm) — shifted +10mm Z for new 195mm case (OPi center at 97.5mm)
+      { pos: [95.5, 36.5, 85], size: [15, 5, 15] },
+      { pos: [113,  36.5, 85], size: [15, 5, 15] },
+      { pos: [88,   38,  105], size: [8,  2,  8]  },
+      { pos: [118,  38,  105], size: [6,  2,  6]  },
+    ],
+    info: 'Geekworm copper heatsink kit (8 pieces)\nSizes: 15×15mm, 15×10mm, 8×8mm, 6×6mm\nAll 5mm tall\nAdhered with thermal tape to:\n  RK3588S SoC — largest heatsink\n  LPDDR4X RAM chips — smaller ones\nASIN: B0B2CP1G23',
+  },
+  {
+    id: 'scrn',
+    name: 'Waveshare 5" Screen',
+    color: 0x00f5d4,
+    // PORTRAIT mount: module rotated 90° → 68.70mm wide × 128mm tall
+    // Centered in 138mm case: (138-68.7)/2 = 34.65mm each side → center X=69mm
+    // 8mm from top (195mm case): top at Z=187mm, center at Z=187-64=123mm
+    scadPos: [69, 4, 123],
+    scadSize: [68.7, 3, 128],
+    info: 'Waveshare 5" IPS HDMI LCD — PORTRAIT MOUNT\nModule: 68.70mm wide × 128mm tall (rotated)\nPCB board: 62.10mm wide × 110.40mm tall\nDepth: 12mm total, 3mm PCB\nResolution: 720×1280 NATIVE PORTRAIT ✅\nInterface: full-size HDMI + USB-C (power+touch)\nWhen portrait-mounted:\n  HDMI port faces one side edge\n  USB-C port faces the other side edge\n5-point capacitive touch | 170° IPS | 300lm',
+  },
+  {
+    id: 'disp',
+    name: 'Active Display Area',
+    color: 0x00f5d4,
+    opacity: 0.25,
+    // Active area in portrait: ~65mm wide × 122mm tall
+    scadPos: [69, 1.5, 123],
+    scadSize: [65, 1, 122],
+    info: 'Active display area: ~65mm wide × 122mm tall (portrait)\nWindow cutout: 69 × 128mm (module + 0.3mm tol)\nNative 720×1280 portrait — no software rotation ✅\nTouch: 5-point capacitive via USB-C',
+  },
+  {
+    id: 'bbq20',
+    name: 'BBQ20 PCB',
+    color: 0x16a34a,
+    // Keyboard area: centered horizontally, bottom of case
+    scadPos: [69, 5.1, 36.05],
+    scadSize: [79.08, 1.2, 52.1],
+    info: 'ZitaoTech BBQ20 USB Keyboard\nPCB: 79.08 × 52.10mm\nCorners: top R3.1mm, bottom R14mm\nMCU: RP2040 (QFN-56, 7×7mm)\nFlash: W25Q16JVSSIQ (SOIC-8)\nUSB-C → USB2.0 HID (no drivers)\nCN1: Hirose BM20B(0.8)-40DS-0.4V(51) — 40-pin 0.8mm FPC\nOrder: #W2026041101483702 (~Apr 16)\n56 SMT components | JLCPCB SMT Assembly ✓\nConnects to: OPi USB2.0-A (right wall, internal)',
+  },
+  {
+    id: 'q20',
+    name: 'Q20 Keyboard',
+    color: 0x1e293b,
+    scadPos: [69, 3.5, 31.75],
+    scadSize: [67.5, 4, 41.5],
+    info: 'BlackBerry Q20 (salvaged)\nKey matrix: 67.5 × 41.5mm\nFPC ribbon exits keyboard bottom → BBQ20 CN1\nOptical trackpad row included\nKeyboard window in case: 69 × 44mm',
+  },
+  {
+    id: 'oled1',
+    name: 'OLED Upper',
+    color: 0xfbbf24,
+    // Right wall, Z=148-168mm center at Z=158mm (shifted +20mm for 195mm case)
+    scadPos: [136.25, 23.5, 158],
+    scadSize: [2.5, 27.5, 19.8],
+    info: '0.96" OLED (yellow-blue)\n128×64 pixels | I2C 0x3C\nPanel: 26.7 × 19.3 × 1.7mm\nPCB: 27 × 27mm (square)\nBus: OPi I2C1\nRight wall cutout: Z=128–148mm\nWire: 4-pin female Dupont 2.54mm',
+  },
+  {
+    id: 'oled2',
+    name: 'OLED Lower',
+    color: 0xfbbf24,
+    scadPos: [136.25, 23.5, 70],
+    scadSize: [2.5, 27.5, 19.8],
+    info: '0.96" OLED (yellow-blue)\n128×64 pixels | I2C 0x3C\nPanel: 26.7 × 19.3 × 1.7mm\nPCB: 27 × 27mm (square)\nBus: OPi I2C4 ⚠️ separate bus — both use addr 0x3C!\nRight wall cutout: Z=60–80mm\nWire: 4-pin female Dupont 2.54mm',
+  },
+  {
+    id: 'ant1',
+    name: 'WiFi Antenna 1',
+    color: 0xf97316,
+    // Left wall, vertical polarization, Z=100-140mm
+    scadPos: [2.15, 23.5, 120],
+    scadSize: [0.5, 10, 40],
+    info: 'FPC sticker antenna\nSize: 40 × 10mm patch\nPolarization: VERTICAL\nLocation: LEFT wall inner surface\nZ = 100–140mm (upper zone, away from SoC)\n120mm U.FL pigtail → OPi\n90° to Antenna 2 = max WiFi 6 MIMO throughput',
+  },
+  {
+    id: 'ant2',
+    name: 'WiFi Antenna 2',
+    color: 0xf97316,
+    // Back plate, horizontal polarization
+    scadPos: [69, 63.75, 125],
+    scadSize: [40, 0.5, 10],
+    info: 'FPC sticker antenna\nSize: 40 × 10mm patch\nPolarization: HORIZONTAL\nLocation: BACK PLATE inner surface, centered\n90° to Antenna 1 = maximum MIMO diversity\n120mm U.FL pigtail → OPi\nWiFi 6 dual-band (2.4GHz + 5GHz)',
+  },
+  {
+    id: 'posts',
+    name: 'M2.5 Standoffs',
+    color: 0x92400e,
+    isStandoffs: true,
+    // OPi flush right: right edge at X=135.5mm outer (133mm inner + 2.5mm wall)
+    // Standoff holes 3.5mm from each OPi corner
+    // SCAD coords: right standoffs X=132mm, left X=77mm
+    // Z: OPi bottom at 47.5mm, top at 147.5mm (195mm case)
+    //   → bottom standoffs Z=47.5+3.5=51, top standoffs Z=147.5-3.5=144
+    positions: [[77, 41.5, 51], [132, 41.5, 51], [77, 41.5, 144], [132, 41.5, 144]],
+    info: 'M2.5 brass standoffs × 4\nHeight: 3mm | OD: 6mm\nScrews: M2.5 × 6mm\nMounting holes: 3.5mm from each OPi corner\nLifts OPi 3mm from back plate\nAllows heatsink airflow behind board',
+  },
+  {
+    id: 'case',
+    name: 'Case Body',
+    color: 0x00f5d4,
+    isCase: true,
+    info: 'Outer: 138 × 195 × 65mm\nInner cavity: 133 × 190 × 59.5mm\nWall thickness: 2.5mm all edges\nBack plate: 3mm (removable)\nCorner radius: 6mm\nMaterial: Clear PETG\nPrint: 0.2mm layers | 40% infill | 3 walls\nNo supports needed (self-supporting)\nBack plate: 4× M2.5 × 8mm self-tapping',
+  },
+];
+
+// ── Assembly steps (updated for corrected cable plan) ─────────────────────
+const STEPS = [
+  {
+    text: 'Mount OPi 5B on standoffs — flush right',
+    parts: ['opi', 'posts'],
+    detail: '4× M2.5 × 6mm screws through OPi corner holes (3.5mm from each edge).\nOPi right edge flush against right inner wall — USB/Ethernet ports poke directly through wall cutouts.\nStandoffs lift board 3mm — leave gap for airflow over heatsinks.',
+  },
+  {
+    text: 'Attach heatsinks to OPi chips',
+    parts: ['heat', 'opi'],
+    detail: 'Clean chip surfaces with IPA first.\n15×15mm heatsink on RK3588S SoC.\nSmaller sizes on LPDDR4X RAM chips.\n5mm total height — verified against case depth.\nUse thermal adhesive tape (included with Geekworm kit).',
+  },
+  {
+    text: 'Stick WiFi FPC antennas',
+    parts: ['ant1', 'ant2'],
+    detail: 'Antenna 1: stick VERTICALLY on left wall inner surface (Z=100–140mm).\nAntenna 2: stick HORIZONTALLY on back plate inner surface (centered).\n90° polarization separation = maximum WiFi 6 MIMO throughput.\n120mm pigtails easily reach OPi u.FL connectors on bottom edge.',
+  },
+  {
+    text: 'Connect flat ribbon HDMI cable',
+    parts: ['scrn', 'opi'],
+    detail: 'Use 15cm FLAT/FPC HDMI cable (2-3mm thin, not standard HDMI).\nOPi HDMI OUT (bottom long edge) → Waveshare HDMI (bottom edge of PCB).\nRoute cable flat along case interior — plenty of room with 59.5mm cavity depth.\nRight-angle HDMI adapters help if routing is tight.',
+  },
+  {
+    text: 'Connect screen USB-C (power + touch)',
+    parts: ['scrn', 'opi'],
+    detail: 'One USB-C to USB-C cable handles BOTH screen power and touch data.\nWaveshare USB-C (top-left of PCB) → OPi USB3.0 Type-C (bottom edge).\n~10cm cable. No separate power wire needed.\n⚠️ USB2.0 Type-A shares the same bus — both run at USB2.0 speeds (fine for HID + touch).',
+  },
+  {
+    text: 'Mount screen in front window (portrait)',
+    parts: ['scrn', 'disp'],
+    detail: 'Screen PORTRAIT mount: 68.70mm wide × 128mm tall.\nWindow cutout: 69 × 128mm (module + 0.3mm tol).\nAluminum frame rests on ledge (2mm step inside).\n4× M2 × 6mm screws through aluminum frame corners.\n⚠️ HDMI + USB-C ports now face the side edges — route cables accordingly.',
+  },
+  {
+    text: 'Wire OLED displays to OPi GPIO',
+    parts: ['oled1', 'oled2'],
+    detail: 'OLED Upper → OPi I2C1 bus (0x3C).\nOLED Lower → OPi I2C4 bus (0x3C).\n⚠️ MUST use different I2C buses — both OLEDs share the same 0x3C address!\nUse 4-pin female-to-female Dupont 2.54mm wires.\nDO NOT use JST LED strip connectors (wrong pitch, wrong housing).',
+  },
+  {
+    text: 'Snap BBQ20 PCB + Q20 keyboard',
+    parts: ['bbq20', 'q20'],
+    detail: 'Slide BBQ20 PCB (79.08mm wide) into keyboard rail guides.\nRoute Q20 FPC ribbon through slot to CN1 connector.\nHirose BM20B(0.8)-40DS — handle FPC with care, lock gently.',
+  },
+  {
+    text: 'Connect BBQ20 keyboard → OPi',
+    parts: ['bbq20', 'opi'],
+    detail: '~10cm USB-A to USB-C: BBQ20 USB-C → OPi USB2.0 Type-A (right wall).\nThis is the internal cable — USB2.0-A right wall port is consumed internally.\nBBQ20 = standard USB HID keyboard, no drivers, works on boot.\nTest keyboard before closing case!',
+  },
+  {
+    text: 'Close back plate',
+    parts: ['case'],
+    detail: 'Route all cables neatly before closing.\n4× M2.5 × 8mm self-tapping screws into corner bosses.\n6 vent slots align over OPi heatsink zone.\nK!MO signature vent glows if you add an internal LED strip!',
+  },
+];
+
+// ── Specs tab (all from MEASUREMENTS.md) ─────────────────────────────────
+const SPECS = [
+  {
+    label: 'CASE (OUTER)',
+    lines: [
+      ['138 × 195 × 65mm', true],
+      ['Wall: 2.5mm | Corner R: 6mm', false],
+      ['Back plate: 3mm removable', false],
+      ['Material: Clear PETG', false],
+    ],
+  },
+  {
+    label: 'INNER CAVITY',
+    lines: [
+      ['133 × 190 × 59.5mm', false],
+      ['Screen zone: Y=0–12mm (front)', false],
+      ['OPi zone: Y=12–44mm', false],
+      ['Back plate: Y=59.5–65mm', false],
+    ],
+  },
+  {
+    label: 'SCREEN WINDOW — PORTRAIT',
+    lines: [
+      ['Cutout: 69 × 128mm (W × H)', true],
+      ['Module: 68.70 × 128mm + 0.3mm tol', false],
+      ['8mm from top | centered (34.65mm each side)', false],
+      ['Ledge: 2mm step inside for module', false],
+    ],
+  },
+  {
+    label: 'WAVESHARE 5" SCREEN',
+    lines: [
+      ['Module: 128.00 × 68.70mm', false],
+      ['PCB board: 110.40 × 62.10mm', true],
+      ['Depth: 12mm | Resolution: 720×1280', false],
+      ['HDMI: full-size, bottom edge of PCB', false],
+      ['USB-C: top-left of PCB (power + touch)', true],
+    ],
+  },
+  {
+    label: 'OPi 5B POSITION',
+    lines: [
+      ['Flush right — right edge at inner wall', true],
+      ['Left edge: 71mm from left inner wall', false],
+      ['Vertical: centered (37.5mm top+bottom)', false],
+      ['Depth: ~15mm from front face', false],
+    ],
+  },
+  {
+    label: 'KEYBOARD WINDOW (front face)',
+    lines: [
+      ['Cutout: 69 × 44mm', false],
+      ['10mm from bottom | centered', false],
+      ['BBQ20 PCB: 79.08 × 52.10mm', false],
+      ['Q20 key matrix: 67.5 × 41.5mm', false],
+    ],
+  },
+  {
+    label: 'RIGHT WALL PORTS',
+    lines: [
+      ['USB3.0-A: Z ≈ 123mm — FREE ✅', true],
+      ['USB2.0-A: Z ≈ 113mm — keyboard (internal)', false],
+      ['Ethernet: Z ≈ 93mm — FREE ✅', true],
+      ['SW3: Z=40mm | SW4: Z=28mm', false],
+      ['OLED1: Z=128–148mm | OLED2: Z=55–75mm', false],
+    ],
+  },
+  {
+    label: 'BOTTOM EDGE PORTS',
+    lines: [
+      ['USB-C Power IN — FREE (charger) ✅', true],
+      ['Audio 3.5mm — FREE ✅', true],
+      ['HDMI OUT — screen (internal)', false],
+      ['USB3.0 Type-C — screen touch (internal)', false],
+    ],
+  },
+  {
+    label: 'TOP EDGE',
+    lines: [
+      ['MicroSD slot — FREE ✅', true],
+      ['26-pin GPIO header (internal)', false],
+      ['LED status light — 3mm hole', false],
+    ],
+  },
+  {
+    label: 'PCB ORDER',
+    lines: [
+      ['Order: #W2026041101483702', false],
+      ['Service: JLCPCB SMT Assembly', false],
+      ['ETA: ~Apr 16, 2026', false],
+      ['56 components | 55 BOM lines', false],
+    ],
+  },
+];
+
+// ── Scene setup ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x04080f);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 1200);
+camera.position.set(180, 100, 260);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+
+// Sci-fi lighting: cool rim from top-right, dim cyan fill, almost no ambient
+const ambient = new THREE.AmbientLight(0x030810, 3.0);
+scene.add(ambient);
+
+const rimLight = new THREE.DirectionalLight(0x00d4ff, 1.4);
+rimLight.position.set(120, 200, 80);
+scene.add(rimLight);
+
+const fillLight = new THREE.DirectionalLight(0x003322, 0.6);
+fillLight.position.set(-100, -60, -120);
+scene.add(fillLight);
+
+// Subtle dot grid on the floor — more sci-fi than a plain grid
+const gridGeo = new THREE.PlaneGeometry(500, 500, 40, 40);
+const gridMat = new THREE.MeshBasicMaterial({
+  color: 0x001825, wireframe: true, transparent: true, opacity: 0.25,
+});
+const grid = new THREE.Mesh(gridGeo, gridMat);
+grid.rotation.x = -Math.PI / 2;
+grid.position.y = -107; // half of 195mm case height + small offset
+scene.add(grid);
+
+// ── Material helpers ──────────────────────────────────────────────────────
+const mkMat = (hex, opacity = 1) => {
+  const m = new THREE.MeshPhongMaterial({
+    color: hex,
+    shininess: 80,
+    specular: 0x112233,
+  });
+  if (opacity < 1) { m.transparent = true; m.opacity = opacity; }
+  return m;
+};
+
+// Glowing edge lines — the sci-fi effect comes from these more than the faces
+const edgeLines = (geo, hex = 0x00f5d4, a = 0.7) =>
+  new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color: hex, transparent: true, opacity: a })
+  );
+
+// Panel lines: inset frame to suggest surface detail on the case
+const panelLines = (w, h, d, inset = 4) => {
+  const pts = [
+    new THREE.Vector3(-w/2 + inset, h/2, d/2 + 0.1),
+    new THREE.Vector3( w/2 - inset, h/2, d/2 + 0.1),
+    new THREE.Vector3( w/2 - inset, h/2, d/2 + 0.1),
+    new THREE.Vector3( w/2,        h/2 - inset, d/2 + 0.1),
+    new THREE.Vector3( w/2,        h/2 - inset, d/2 + 0.1),
+    new THREE.Vector3( w/2,       -h/2 + inset, d/2 + 0.1),
+    new THREE.Vector3( w/2,       -h/2 + inset, d/2 + 0.1),
+    new THREE.Vector3( w/2 - inset,-h/2, d/2 + 0.1),
+    new THREE.Vector3( w/2 - inset,-h/2, d/2 + 0.1),
+    new THREE.Vector3(-w/2 + inset,-h/2, d/2 + 0.1),
+    new THREE.Vector3(-w/2 + inset,-h/2, d/2 + 0.1),
+    new THREE.Vector3(-w/2,       -h/2 + inset, d/2 + 0.1),
+    new THREE.Vector3(-w/2,       -h/2 + inset, d/2 + 0.1),
+    new THREE.Vector3(-w/2,        h/2 - inset, d/2 + 0.1),
+    new THREE.Vector3(-w/2,        h/2 - inset, d/2 + 0.1),
+    new THREE.Vector3(-w/2 + inset, h/2, d/2 + 0.1),
+  ];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  return new THREE.LineSegments(geo,
+    new THREE.LineBasicMaterial({ color: 0x003a50, transparent: true, opacity: 0.5 })
+  );
+};
+
+// ── Mesh registry ─────────────────────────────────────────────────────────
+const reg = {};
+const clickable = [];
+
+const register = (id, mesh, pos) => {
+  if (!reg[id]) reg[id] = { meshes: [], assembledPos: [], visible: true };
+  reg[id].meshes.push(mesh);
+  reg[id].assembledPos.push(pos.clone());
+  clickable.push(mesh);
+  mesh.userData.id = id;
+};
+
+// ── Build 3D components ───────────────────────────────────────────────────
+COMPS.forEach(comp => {
+
+  // Case: wireframe + bright edges + panel lines — the centerpiece
+  if (comp.isCase) {
+    const [W, H, D] = [138, 195, 65];
+    const geo = new THREE.BoxGeometry(W, H, D);
+
+    // Almost invisible solid fill — just enough to show volume
+    const mesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
+      color: 0x001020, transparent: true, opacity: 0.06, shininess: 120,
+    }));
+
+    // Bright glowing case edges
+    mesh.add(edgeLines(geo, 0x00f5d4, 0.9));
+
+    // Panel lines on front face for sci-fi surface detail
+    mesh.add(panelLines(W, H, D, 8));
+
+    // Inner corner accent lines (slightly smaller box outline)
+    const innerGeo = new THREE.BoxGeometry(W - 5, H - 5, D - 2);
+    mesh.add(edgeLines(innerGeo, 0x003a50, 0.3));
+
+    mesh.userData.id = comp.id;
+    scene.add(mesh);
+    clickable.push(mesh);
+    reg[comp.id] = { meshes: [mesh], assembledPos: [new THREE.Vector3(0, 0, 0)], visible: true };
+    return;
+  }
+
+  if (comp.isStandoffs) {
+    const geo = new THREE.CylinderGeometry(3, 3, 3, 8);
+    const mat = mkMat(comp.color);
+    reg[comp.id] = { meshes: [], assembledPos: [], visible: true };
+    comp.positions.forEach(([sx, sy, sz]) => {
+      const pos = s2t(sx, sy, sz);
+      const mesh = new THREE.Mesh(geo, mat.clone());
+      mesh.rotation.x = Math.PI / 2;
+      mesh.position.copy(pos);
+      mesh.userData.id = comp.id;
+      mesh.add(edgeLines(geo, 0xd97706, 0.5));
+      scene.add(mesh);
+      register(comp.id, mesh, pos);
+    });
+    return;
+  }
+
+  if (comp.isGroup) {
+    reg[comp.id] = { meshes: [], assembledPos: [], visible: true };
+    comp.children.forEach(child => {
+      const pos = s2t(...child.pos);
+      const [W, D, H] = child.size;
+      const geo = new THREE.BoxGeometry(W, H, D);
+      const mesh = new THREE.Mesh(geo, mkMat(comp.color));
+      mesh.position.copy(pos);
+      mesh.userData.id = comp.id;
+      mesh.add(edgeLines(geo, 0xf59e0b, 0.6));
+      scene.add(mesh);
+      register(comp.id, mesh, pos);
+    });
+    return;
+  }
+
+  // Standard single mesh
+  const pos = s2t(...comp.scadPos);
+  const [W, D, H] = comp.scadSize;
+  const geo = new THREE.BoxGeometry(W, H, D);
+  const mat = mkMat(comp.color, comp.opacity ?? 1);
+  // Darken the face color — let the edges do the talking
+  mat.color.multiplyScalar(0.25);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(pos);
+  mesh.userData.id = comp.id;
+
+  const edgeColor = comp.color;
+  mesh.add(edgeLines(geo, edgeColor, comp.opacity ? 0.4 : 0.75));
+
+  scene.add(mesh);
+  reg[comp.id] = { meshes: [mesh], assembledPos: [pos.clone()], visible: true };
+  clickable.push(mesh);
+});
+
+// ── UI: Components tab ────────────────────────────────────────────────────
+let selId = null;
+const compInfo = document.getElementById('comp-info');
+const compList = document.getElementById('comp-list');
+
+const setGlow = (id, on) => {
+  reg[id]?.meshes.forEach(m => {
+    if (!m.material?.emissive) return;
+    m.material.emissive.setHex(on ? 0x00f5d4 : 0x000000);
+    m.material.emissiveIntensity = on ? 0.3 : 0;
+  });
+};
+
+const setSelected = (id, fromPanel = false) => {
+  if (selId) {
+    setGlow(selId, false);
+    compList.querySelector(`[data-id="${selId}"]`)?.classList.remove('sel');
+  }
+  selId = id;
+  if (!id) {
+    compInfo.textContent = 'click a component to see specs';
+    compInfo.className = 'ib-body empty';
+    return;
+  }
+  setGlow(id, true);
+  const comp = COMPS.find(c => c.id === id);
+  compInfo.textContent = comp?.info ?? '';
+  compInfo.className = 'ib-body';
+  const row = compList.querySelector(`[data-id="${id}"]`);
+  row?.classList.add('sel');
+  if (!fromPanel) row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+};
+
+COMPS.forEach(comp => {
+  const row = document.createElement('div');
+  row.className = 'cr';
+  row.dataset.id = comp.id;
+
+  const dot = document.createElement('span');
+  dot.className = 'cdot';
+  dot.style.background = '#' + comp.color.toString(16).padStart(6, '0');
+
+  const name = document.createElement('span');
+  name.className = 'cn';
+  name.textContent = comp.name;
+
+  const vis = document.createElement('span');
+  vis.className = 'vb';
+  vis.textContent = '●';
+  vis.title = 'toggle visibility';
+  vis.addEventListener('click', e => {
+    e.stopPropagation();
+    const entry = reg[comp.id];
+    const nowOn = entry.meshes[0]?.visible;
+    entry.meshes.forEach(m => { m.visible = !nowOn; });
+    entry.visible = !nowOn;
+    vis.textContent = nowOn ? '○' : '●';
+    vis.classList.toggle('off', nowOn);
+  });
+
+  row.append(dot, name, vis);
+  row.addEventListener('click', () => setSelected(comp.id, true));
+  compList.appendChild(row);
+});
+
+// ── UI: Assembly tab ──────────────────────────────────────────────────────
+let activeStep = -1;
+const stepsList = document.getElementById('steps-list');
+const stepInfo = document.getElementById('step-info');
+
+const resetStepHighlight = () => {
+  COMPS.forEach(c => {
+    reg[c.id]?.meshes.forEach(m => {
+      if (!m.material) return;
+      m.material.transparent = (c.opacity !== undefined && c.opacity < 1);
+      m.material.opacity = c.opacity ?? (c.isCase ? 0.06 : 1);
+      if (m.material.emissive) {
+        m.material.emissive.setHex(0x000000);
+        m.material.emissiveIntensity = 0;
+      }
+    });
+  });
+};
+
+const setStep = i => {
+  if (activeStep >= 0) stepsList.children[activeStep]?.classList.remove('on');
+  resetStepHighlight();
+  activeStep = (activeStep === i) ? -1 : i;
+  if (activeStep < 0) {
+    stepInfo.textContent = 'click a step to highlight parts';
+    stepInfo.className = 'ib-body empty';
+    return;
+  }
+
+  stepsList.children[activeStep]?.classList.add('on');
+  stepInfo.textContent = STEPS[activeStep].detail;
+  stepInfo.className = 'ib-body';
+
+  const active = new Set(STEPS[activeStep].parts);
+  COMPS.forEach(c => {
+    reg[c.id]?.meshes.forEach(m => {
+      if (!m.material) return;
+      const on = active.has(c.id);
+      m.material.transparent = true;
+      m.material.opacity = on ? (c.opacity ?? (c.isCase ? 0.06 : 0.9)) : 0.02;
+      if (m.material.emissive && on) {
+        m.material.emissive.setHex(0x00f5d4);
+        m.material.emissiveIntensity = 0.2;
+      }
+    });
+  });
+};
+
+STEPS.forEach((step, i) => {
+  const div = document.createElement('div');
+  div.className = 'step';
+
+  const num = document.createElement('div');
+  num.className = 'snum';
+  num.textContent = String(i + 1);
+
+  const body = document.createElement('div');
+  body.className = 'stxt';
+
+  const title = document.createElement('div');
+  title.className = 'stitle';
+  title.textContent = step.text;
+
+  const parts = document.createElement('div');
+  parts.className = 'sparts';
+  parts.textContent = step.parts.join(' · ');
+
+  body.append(title, parts);
+  div.append(num, body);
+  div.addEventListener('click', () => setStep(i));
+  stepsList.appendChild(div);
+});
+
+// ── UI: Specs tab ─────────────────────────────────────────────────────────
+const specsEl = document.getElementById('specs-content');
+SPECS.forEach(section => {
+  const header = document.createElement('div');
+  header.className = 'spec-section';
+  header.textContent = section.label;
+  specsEl.appendChild(header);
+
+  section.lines.forEach(([text, highlight]) => {
+    const p = document.createElement('div');
+    p.className = 'spec-line' + (highlight ? ' highlight' : '');
+    p.textContent = text;
+    specsEl.appendChild(p);
+  });
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tp').forEach(p => p.classList.remove('on'));
+    tab.classList.add('active');
+    document.getElementById('tp-' + tab.dataset.tab).classList.add('on');
+  });
+});
+
+// ── Raycasting ────────────────────────────────────────────────────────────
+const rc = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+  rc.setFromCamera(mouse, camera);
+  const hits = rc.intersectObjects(clickable);
+  setSelected(hits[0]?.object.userData.id ?? null);
+});
+
+// ── Explode / Assemble ────────────────────────────────────────────────────
+let animStart = null, animFrom = {}, animTo = {}, animating = false, exploded = false;
+const ANIM_MS = 800;
+const ease = t => t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+
+const startAnim = targets => {
+  animFrom = {};
+  Object.keys(reg).forEach(id => {
+    animFrom[id] = reg[id].meshes.map(m => m.position.clone());
+  });
+  animTo = targets;
+  animStart = performance.now();
+  animating = true;
+};
+
+document.getElementById('btn-explode').addEventListener('click', () => {
+  if (exploded) return;
+  const t = {};
+  Object.keys(reg).forEach(id => {
+    t[id] = reg[id].assembledPos.map(p => p.clone().multiplyScalar(1.9));
+  });
+  startAnim(t);
+  exploded = true;
+});
+
+document.getElementById('btn-assemble').addEventListener('click', () => {
+  if (!exploded) return;
+  const t = {};
+  Object.keys(reg).forEach(id => {
+    t[id] = reg[id].assembledPos.map(p => p.clone());
+  });
+  startAnim(t);
+  exploded = false;
+});
+
+document.getElementById('btn-show-all').addEventListener('click', () => {
+  resetStepHighlight();
+  activeStep = -1;
+  COMPS.forEach(c => {
+    reg[c.id]?.meshes.forEach(m => { m.visible = true; });
+    reg[c.id].visible = true;
+    const vb = compList.querySelector(`[data-id="${c.id}"] .vb`);
+    if (vb) { vb.textContent = '●'; vb.classList.remove('off'); }
+  });
+  stepInfo.textContent = 'click a step to highlight parts';
+  stepInfo.className = 'ib-body empty';
+  stepsList.querySelectorAll('.on').forEach(el => el.classList.remove('on'));
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  camera.position.set(180, 100, 260);
+  controls.target.set(0, 0, 0);
+  controls.update();
+});
+
+// ── Resize + render loop ──────────────────────────────────────────────────
+const onResize = () => {
+  const vp = document.getElementById('vp');
+  const w = vp.clientWidth, h = vp.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+};
+window.addEventListener('resize', onResize);
+onResize();
+
+const animate = now => {
+  requestAnimationFrame(animate);
+
+  if (animating) {
+    const t = Math.min((now - animStart) / ANIM_MS, 1);
+    const e = ease(t);
+    Object.keys(reg).forEach(id => {
+      reg[id].meshes.forEach((m, mi) => {
+        const f = animFrom[id]?.[mi], to = animTo[id]?.[mi];
+        if (f && to) m.position.lerpVectors(f, to, e);
+      });
+    });
+    if (t >= 1) animating = false;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+};
+animate(performance.now());
+</script>
+</body>
+</html>
