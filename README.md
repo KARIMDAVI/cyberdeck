@@ -1,36 +1,3 @@
-🚀 Getting Started
-1. Host Preparation
-Flash Armbian to MicroSD/eMMC.
-Run the post-install script:
-Bash
-sudo ./scripts/opi5b_postinstall.sh
-Verify SSH key access and firewall status.
-2. Kali LXC Setup (Optional)
-To run Kali tools safely:
-Install LXC on the host.
-Create the container:
-Bash
-lxc-create -t download -n kali-arm64
-Attach and install metapackages:
-Bash
-apt install kali-linux-default
-3. Display Configuration
-The Waveshare 5" is native portrait. Use xrandr to ensure correct orientation:
-Bash
-xrandr --output HDMI-1 --rotate left
-📐 Design Philosophy: "The Single Source of Truth"
-All design decisions are governed by PROJECT_STATUS.md. If a conflict arises between files, that document wins. The chassis dimensions are frozen at 138mm x 195mm x 65mm to allow for comfortable internal cable management and airflow.
-👤 Owner
-K!MO Built for the field. Secured for the future.
-"""
-with open("README.md", "w", encoding="utf-8") as f:
-f.write(readme_content)
-print("File successfully generated.")
-Your README.md file is ready
-[file-tag: code-generated-file-0-1780936033182206653]
-
-Here is the clean, properly formatted Markdown content for your project:
-
 ```markdown
 # 📟 CYBERDECK v1 (Orange Pi 5B)
 
